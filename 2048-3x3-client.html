@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2048 - 3x3</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #faf8ef;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #776e65;
+            font-size: clamp(32px, 5vmin, 64px);
+            margin-bottom: 0.5vmin;
+        }
+
+        .subtitle {
+            color: #776e65;
+            margin-bottom: 1vmin;
+            font-size: clamp(14px, 2vmin, 24px);
+        }
+
+        .header {
+            display: flex;
+            gap: 1.5vmin;
+            margin-bottom: 2vmin;
+            align-items: stretch;
+        }
+
+        .score-container {
+            background: #bbada0;
+            padding: 8px 10px;
+            border-radius: 6px;
+            color: white;
+            text-align: center;
+            width: 90px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .score-label {
+            font-size: clamp(9px, 1.2vmin, 13px);
+            text-transform: uppercase;
+        }
+
+        .score-value {
+            font-size: clamp(16px, 2.5vmin, 28px);
+            font-weight: bold;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .header-btn {
+            background: #8f7a66;
+            color: white;
+            border: none;
+            padding: 0.8vmin 1.5vmin;
+            border-radius: 6px;
+            font-size: clamp(12px, 1.5vmin, 18px);
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .header-btn:hover {
+            background: #9f8b77;
+        }
+
+        #hintsToggle:not(.active) {
+            background: #bbada0;
+        }
+
+        .header-btn:disabled {
+            background: #cdc1b4;
+            cursor: default;
+        }
+
+        .game-row {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .game-wrapper {
+            position: relative;
+        }
+
+        .game-container {
+            background: #bbada0;
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .grid {
+            display: grid;
+            gap: 1.5vmin;
+        }
+
+        .cell {
+            background: rgba(238, 228, 218, 0.35);
+            border-radius: 6px;
+        }
+
+        .tile {
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            position: absolute;
+            transition: top 0.15s ease-in-out, left 0.15s ease-in-out;
+        }
+
+        .tile-2 { background: #eee4da; color: #776e65; }
+        .tile-4 { background: #ede0c8; color: #776e65; }
+        .tile-8 { background: #f2b179; color: #f9f6f2; }
+        .tile-16 { background: #f59563; color: #f9f6f2; }
+        .tile-32 { background: #f67c5f; color: #f9f6f2; }
+        .tile-64 { background: #f65e3b; color: #f9f6f2; }
+        .tile-128 { background: #edcf72; color: #f9f6f2; }
+        .tile-256 { background: #edcc61; color: #f9f6f2; }
+        .tile-512 { background: #edc850; color: #f9f6f2; }
+        .tile-1024 { background: #edc53f; color: #f9f6f2; }
+        .tile-2048 { background: #edc22e; color: #f9f6f2; }
+
+        .tile-new {
+            animation: appear 0.1s ease-out;
+        }
+
+        .tile-merged {
+            animation: pop 0.1s ease-out;
+        }
+
+        @keyframes appear {
+            0% { transform: scale(0); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .game-over-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(238, 228, 218, 0.73);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .game-over-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .game-over-text {
+            font-size: clamp(24px, 5vmin, 48px);
+            font-weight: bold;
+            color: #776e65;
+            margin-bottom: 2vmin;
+        }
+
+        .instructions {
+            color: #776e65;
+            margin-top: 2vmin;
+            text-align: center;
+            font-size: clamp(12px, 1.8vmin, 20px);
+        }
+
+        .move-hints {
+            position: absolute;
+            left: calc(100% + 2vmin);
+            top: 50%;
+            transform: translateY(-50%);
+            display: none;
+            grid-template-areas:
+                ".    up   ."
+                "left .    right"
+                ".    down .";
+            grid-template-columns: repeat(3, 60px);
+            grid-template-rows: repeat(3, 60px);
+            gap: 4px;
+        }
+
+        .move-hints.visible {
+            display: grid;
+        }
+
+        .move-hint {
+            width: 60px;
+            height: 60px;
+            background: #bbada0;
+            border-radius: 6px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .move-hint.best {
+            background: #8f7a66;
+        }
+
+        .move-hint.unavailable {
+            background: #cdc1b4;
+            color: #a99e93;
+        }
+
+        .move-hint.suboptimal {
+            color: #f9f6f2;
+        }
+
+        .move-hint[data-dir="up"] { grid-area: up; }
+        .move-hint[data-dir="down"] { grid-area: down; }
+        .move-hint[data-dir="left"] { grid-area: left; }
+        .move-hint[data-dir="right"] { grid-area: right; }
+    </style>
+</head>
+<body>
+    <h1>2048</h1>
+    <p class="subtitle">3x3 Edition</p>
+
+    <div class="header">
+        <div class="score-container">
+            <div class="score-label">Accuracy</div>
+            <div class="score-value" id="accuracy">100%</div>
+        </div>
+        <div class="score-container">
+            <div class="score-label">Win Prob</div>
+            <div class="score-value" id="winProb">...</div>
+        </div>
+        <button class="header-btn active" id="hintsToggle" onclick="toggleHints()">Hints</button>
+        <button class="header-btn" id="undoBtn" onclick="undo()" disabled>Undo</button>
+        <button class="header-btn" onclick="newGame()">New</button>
+    </div>
+
+    <div class="game-row">
+        <div class="game-wrapper">
+            <div class="game-container">
+                <div class="grid">
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                </div>
+                <div id="tiles"></div>
+                <div class="game-over-overlay" id="gameOver">
+                    <div class="game-over-text" id="gameOverText">Game Over!</div>
+                    <button class="header-btn" onclick="newGame()">Try Again</button>
+                </div>
+            </div>
+            <div class="move-hints visible" id="moveHints"></div>
+        </div>
+    </div>
+
+    <p class="instructions">Use arrow keys to move tiles. Space = play best move.<br>Combine matching numbers to reach 1024!</p>
+
+    <script>
+        const ROWS = 3;
+        const COLS = 3;
+        const NUM_CELLS = 9;
+        const SLIDE_DURATION = 150;
+        const WIN_VALUE = 1024;
+
+        let CELL_SIZE, GAP, PADDING;
+        let tiles = [];
+        let tileId = 0;
+        let accuracy = 1;  // starts at 100%, multiplied down
+        let moveCount = 0;
+        let isAnimating = false;
+        let showHints = true;
+        let lastMoveProbs = null;
+        let stateHistory = [];
+
+        function saveState() {
+            stateHistory.push({
+                tiles: tiles.map(t => ({ row: t.row, col: t.col, value: t.value })),
+                accuracy: accuracy,
+                moveCount: moveCount
+            });
+            document.getElementById('undoBtn').disabled = false;
+        }
+
+        function undo() {
+            if (stateHistory.length === 0 || isAnimating) return;
+            const state = stateHistory.pop();
+
+            // Clear current tiles
+            document.getElementById('tiles').innerHTML = '';
+            tiles = [];
+            tileId = 0;
+
+            // Restore tiles
+            for (const t of state.tiles) {
+                createTile(t.row, t.col, t.value, false);
+            }
+
+            // Restore state
+            accuracy = state.accuracy;
+            moveCount = state.moveCount;
+            updateAccuracy();
+            updateWinProbDisplay();
+
+            // Update undo button
+            document.getElementById('undoBtn').disabled = stateHistory.length === 0;
+
+            // Hide game over if showing
+            document.getElementById('gameOver').classList.remove('active');
+        }
+
+        function formatPct(value) {
+            const pct = value * 100;
+            return pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(1);
+        }
+
+        function toggleHints() {
+            showHints = !showHints;
+            const hintsBtn = document.getElementById('hintsToggle');
+            const hintsPanel = document.getElementById('moveHints');
+            if (showHints) {
+                hintsBtn.classList.add('active');
+                hintsPanel.classList.add('visible');
+                updateMoveHintsWithData(lastMoveProbs || { up: null, down: null, left: null, right: null });
+            } else {
+                hintsBtn.classList.remove('active');
+                hintsPanel.classList.remove('visible');
+                hintsPanel.innerHTML = '';
+            }
+            hintsBtn.blur();  // Prevent Enter key from re-triggering
+        }
+
+        function getCurrentFlat() {
+            const flat = new Array(NUM_CELLS).fill(0);
+            tiles.forEach(t => {
+                if (t.value < WIN_VALUE) {
+                    flat[t.row * 3 + t.col] = t.value;
+                }
+            });
+            return flat;
+        }
+
+        function getStateString() {
+            return getCurrentFlat().join(',');
+        }
+
+        async function fetchWinProbability() {
+            try {
+                const state = getStateString();
+                const response = await fetch(`/api/prob?state=${encodeURIComponent(state)}`);
+                const data = await response.json();
+                return data.probability;
+            } catch (e) {
+                console.error('Error fetching probability:', e);
+                return 0;
+            }
+        }
+
+        async function fetchMoveProbs() {
+            try {
+                const state = getStateString();
+                const response = await fetch(`/api/moves?state=${encodeURIComponent(state)}`);
+                return await response.json();
+            } catch (e) {
+                console.error('Error fetching move probs:', e);
+                return { up: null, down: null, left: null, right: null };
+            }
+        }
+
+        async function updateWinProbDisplay() {
+            if (tiles.some(t => t.value >= WIN_VALUE)) {
+                document.getElementById('winProb').textContent = '100%';
+                updateMoveHintsWithData({ up: null, down: null, left: null, right: null });
+                return;
+            }
+
+            const prob = await fetchWinProbability();
+            document.getElementById('winProb').textContent = formatPct(prob) + '%';
+
+            const moveProbs = await fetchMoveProbs();
+            updateMoveHintsWithData(moveProbs);
+        }
+
+        function updateMoveHintsWithData(moveProbs) {
+            lastMoveProbs = moveProbs;
+            const container = document.getElementById('moveHints');
+            const hintsBtn = document.getElementById('hintsToggle');
+
+            // Always enforce UI state based on showHints
+            if (showHints) {
+                hintsBtn.classList.add('active');
+                container.classList.add('visible');
+            } else {
+                hintsBtn.classList.remove('active');
+                container.classList.remove('visible');
+                container.innerHTML = '';
+                return;
+            }
+
+            const directions = ['up', 'down', 'left', 'right'];
+
+            // Find the best probability
+            let bestProb = 0;
+            for (const dir of directions) {
+                const prob = moveProbs[dir];
+                if (prob !== null && prob > bestProb) {
+                    bestProb = prob;
+                }
+            }
+
+            let html = '';
+            for (const dir of directions) {
+                const prob = moveProbs[dir];
+                const isAvailable = prob !== null;
+
+                if (isAvailable) {
+                    if (bestProb === 0) {
+                        // Dead lost - no winning moves
+                        html += `<div class="move-hint unavailable" data-dir="${dir}">lost</div>`;
+                    } else {
+                        const isBest = prob === bestProb;
+                        const ratio = prob / bestProb;  // 0.0 to 1.0
+                        const ratioStr = formatPct(ratio) + '%';
+                        const classes = isBest ? 'best' : 'suboptimal';
+                        html += `<div class="move-hint ${classes}" data-dir="${dir}">${ratioStr}</div>`;
+                    }
+                } else {
+                    html += `<div class="move-hint unavailable" data-dir="${dir}">✕</div>`;
+                }
+            }
+
+            container.innerHTML = html;
+        }
+
+        function playBestMove() {
+            if (!lastMoveProbs || isAnimating) return;
+
+            const directions = ['up', 'down', 'left', 'right'];
+            let bestProb = -1;
+            let bestDirs = [];
+
+            for (const dir of directions) {
+                const prob = lastMoveProbs[dir];
+                if (prob !== null) {
+                    if (prob > bestProb) {
+                        bestProb = prob;
+                        bestDirs = [dir];
+                    } else if (prob === bestProb) {
+                        bestDirs.push(dir);
+                    }
+                }
+            }
+
+            if (bestDirs.length > 0) {
+                // Pick randomly among tied best moves
+                const chosen = bestDirs[Math.floor(Math.random() * bestDirs.length)];
+                move(chosen);
+            }
+        }
+
+        function calculateSizes() {
+            const header = document.querySelector('h1');
+            const subtitle = document.querySelector('.subtitle');
+            const headerBar = document.querySelector('.header');
+            const instructions = document.querySelector('.instructions');
+
+            const headerHeight = header.offsetHeight + subtitle.offsetHeight +
+                                 headerBar.offsetHeight + instructions.offsetHeight + 80;
+            const availableHeight = window.innerHeight - headerHeight;
+            const availableWidth = window.innerWidth - 250;
+
+            const gapRatio = 0.1;
+            const paddingRatio = 0.1;
+
+            const maxCellByHeight = availableHeight / (ROWS * (1 + gapRatio) + paddingRatio * 2);
+            const maxCellByWidth = availableWidth / (COLS * (1 + gapRatio) + paddingRatio * 2);
+
+            CELL_SIZE = Math.floor(Math.min(maxCellByHeight, maxCellByWidth));
+            GAP = Math.floor(CELL_SIZE * gapRatio);
+            PADDING = Math.floor(CELL_SIZE * paddingRatio);
+
+            const gridElement = document.querySelector('.grid');
+            gridElement.style.gridTemplateColumns = `repeat(${COLS}, ${CELL_SIZE}px)`;
+            gridElement.style.gridTemplateRows = `repeat(${ROWS}, ${CELL_SIZE}px)`;
+            gridElement.style.gap = `${GAP}px`;
+
+            const container = document.querySelector('.game-container');
+            container.style.padding = `${PADDING}px`;
+
+            document.querySelectorAll('.tile').forEach(el => {
+                const tile = tiles.find(t => t.element === el);
+                if (tile) {
+                    const pos = getPosition(tile.row, tile.col);
+                    el.style.width = `${CELL_SIZE}px`;
+                    el.style.height = `${CELL_SIZE}px`;
+                    el.style.fontSize = `${Math.floor(CELL_SIZE * 0.4)}px`;
+                    el.style.top = pos.top + 'px';
+                    el.style.left = pos.left + 'px';
+                }
+            });
+        }
+
+        function init() {
+            tiles = [];
+            tileId = 0;
+            accuracy = 1;
+            moveCount = 0;
+            isAnimating = false;
+            stateHistory = [];
+            document.getElementById('undoBtn').disabled = true;
+            updateAccuracy();
+            document.getElementById('gameOver').classList.remove('active');
+            document.getElementById('tiles').innerHTML = '';
+            // Sync hints UI with showHints state
+            const hintsBtn = document.getElementById('hintsToggle');
+            const hintsPanel = document.getElementById('moveHints');
+            if (showHints) {
+                hintsBtn.classList.add('active');
+                hintsPanel.classList.add('visible');
+            } else {
+                hintsBtn.classList.remove('active');
+                hintsPanel.classList.remove('visible');
+                hintsPanel.innerHTML = '';
+            }
+            calculateSizes();
+            addRandomTile();
+            addRandomTile();
+            updateWinProbDisplay();
+        }
+
+        function getPosition(row, col) {
+            return {
+                top: PADDING + row * (CELL_SIZE + GAP),
+                left: PADDING + col * (CELL_SIZE + GAP)
+            };
+        }
+
+        function getGrid() {
+            const grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
+            tiles.forEach(t => {
+                grid[t.row][t.col] = t.value;
+            });
+            return grid;
+        }
+
+        function hasWinningSetup() {
+            const vals = tiles.map(t => t.value);
+            return [512, 256, 128, 64, 32, 16, 8, 4].every(v => vals.includes(v));
+        }
+
+        function addRandomTile() {
+            const grid = getGrid();
+            const emptyCells = [];
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (grid[r][c] === 0) {
+                        emptyCells.push({ r, c });
+                    }
+                }
+            }
+            if (emptyCells.length === 0) return null;
+
+            const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            const value = hasWinningSetup() ? 4 : (Math.random() < 0.9 ? 2 : 4);
+            const tile = createTile(r, c, value, true);
+            return tile;
+        }
+
+        function createTile(row, col, value, isNew = false) {
+            const tile = {
+                id: tileId++,
+                row,
+                col,
+                value,
+                element: document.createElement('div')
+            };
+
+            const pos = getPosition(row, col);
+            tile.element.className = `tile tile-${value}`;
+            tile.element.style.width = `${CELL_SIZE}px`;
+            tile.element.style.height = `${CELL_SIZE}px`;
+            tile.element.style.fontSize = `${Math.floor(CELL_SIZE * 0.4)}px`;
+            tile.element.style.top = pos.top + 'px';
+            tile.element.style.left = pos.left + 'px';
+            tile.element.textContent = value;
+
+            if (isNew) {
+                tile.element.classList.add('tile-new');
+            }
+
+            document.getElementById('tiles').appendChild(tile.element);
+            tiles.push(tile);
+            return tile;
+        }
+
+        function updateAccuracy() {
+            document.getElementById('accuracy').textContent = formatPct(accuracy) + '%';
+        }
+
+        function move(direction) {
+            if (isAnimating) return;
+
+            const movements = [];
+            const merges = [];
+            let moved = false;
+
+            const getRowCol = (i, j) => {
+                if (direction === 'left') return { row: i, col: j };
+                if (direction === 'right') return { row: i, col: COLS - 1 - j };
+                if (direction === 'up') return { row: j, col: i };
+                if (direction === 'down') return { row: ROWS - 1 - j, col: i };
+            };
+
+            const primarySize = (direction === 'left' || direction === 'right') ? ROWS : COLS;
+            const secondarySize = (direction === 'left' || direction === 'right') ? COLS : ROWS;
+
+            for (let i = 0; i < primarySize; i++) {
+                const lineTiles = [];
+                for (let j = 0; j < secondarySize; j++) {
+                    const { row, col } = getRowCol(i, j);
+                    const tile = tiles.find(t => t.row === row && t.col === col);
+                    if (tile) lineTiles.push({ tile, origJ: j });
+                }
+
+                let targetJ = 0;
+                for (let k = 0; k < lineTiles.length; k++) {
+                    const { tile, origJ } = lineTiles[k];
+                    const { row: targetRow, col: targetCol } = getRowCol(i, targetJ);
+
+                    if (k < lineTiles.length - 1 && tile.value === lineTiles[k + 1].tile.value) {
+                        const nextTile = lineTiles[k + 1].tile;
+
+                        movements.push({ tile, targetRow, targetCol });
+                        movements.push({ tile: nextTile, targetRow, targetCol, willMerge: true });
+                        merges.push({ tile, nextTile, targetRow, targetCol, newValue: tile.value * 2 });
+
+                        k++;
+                        moved = true;
+                    } else {
+                        if (tile.row !== targetRow || tile.col !== targetCol) {
+                            movements.push({ tile, targetRow, targetCol });
+                            moved = true;
+                        }
+                    }
+                    targetJ++;
+                }
+            }
+
+            if (!moved) return;
+
+            saveState();
+
+            // Track accuracy: multiply by (chosenProb / bestProb)
+            if (lastMoveProbs) {
+                const chosenProb = lastMoveProbs[direction];
+                if (chosenProb !== null) {
+                    let bestProb = 0;
+                    for (const dir of ['up', 'down', 'left', 'right']) {
+                        const prob = lastMoveProbs[dir];
+                        if (prob !== null && prob > bestProb) {
+                            bestProb = prob;
+                        }
+                    }
+                    if (bestProb > 0) {
+                        accuracy *= (chosenProb / bestProb);
+                    }
+                    moveCount++;
+                }
+            }
+
+            isAnimating = true;
+
+            movements.forEach(({ tile, targetRow, targetCol }) => {
+                tile.row = targetRow;
+                tile.col = targetCol;
+                const pos = getPosition(targetRow, targetCol);
+                tile.element.style.top = pos.top + 'px';
+                tile.element.style.left = pos.left + 'px';
+            });
+
+            setTimeout(() => {
+                merges.forEach(({ tile, nextTile, targetRow, targetCol, newValue }) => {
+                    tile.element.remove();
+                    nextTile.element.remove();
+                    tiles = tiles.filter(t => t !== tile && t !== nextTile);
+
+                    const merged = createTile(targetRow, targetCol, newValue);
+                    merged.element.classList.add('tile-merged');
+                });
+
+                updateAccuracy();
+                addRandomTile();
+                updateWinProbDisplay();
+                isAnimating = false;
+
+                if (checkWin()) {
+                    setTimeout(() => {
+                        document.getElementById('gameOverText').textContent = 'You Win!';
+                        document.getElementById('gameOver').classList.add('active');
+                    }, 300);
+                } else if (checkGameOver()) {
+                    setTimeout(() => {
+                        document.getElementById('gameOverText').textContent = 'Game Over!';
+                        document.getElementById('gameOver').classList.add('active');
+                    }, 300);
+                }
+            }, SLIDE_DURATION);
+        }
+
+        function checkWin() {
+            return tiles.some(t => t.value >= WIN_VALUE);
+        }
+
+        function checkGameOver() {
+            const grid = getGrid();
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (grid[r][c] === 0) return false;
+                    if (c < COLS - 1 && grid[r][c] === grid[r][c + 1]) return false;
+                    if (r < ROWS - 1 && grid[r][c] === grid[r + 1][c]) return false;
+                }
+            }
+            return true;
+        }
+
+        function newGame() {
+            init();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+                const direction = e.key.replace('Arrow', '').toLowerCase();
+                move(direction);
+            }
+            if (e.key === ' ') {
+                e.preventDefault();
+                playBestMove();
+            }
+            if (e.key === 'Enter' && document.getElementById('gameOver').classList.contains('active')) {
+                newGame();
+            }
+        });
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        });
+
+        document.addEventListener('touchend', (e) => {
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+            const dx = touchEndX - touchStartX;
+            const dy = touchEndY - touchStartY;
+
+            if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 30) {
+                move(dx > 0 ? 'right' : 'left');
+            } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 30) {
+                move(dy > 0 ? 'down' : 'up');
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            calculateSizes();
+        });
+
+        init();
+    </script>
+</body>
+</html>
