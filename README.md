@@ -2,11 +2,14 @@
 
 A 2048 trainer with smaller boards that shows optimal move probabilities, helping you learn perfect play.
 
+**▶ Play the 2x3 trainer in your browser: https://bramcohen.github.io/2048/2048-2x3.html**
+
 ## Games
 
 ### 2x3 (Standalone)
 - **File:** `2048-2x3.html`
 - **Goal:** Reach 128
+- **Play online:** https://bramcohen.github.io/2048/2048-2x3.html
 - **Setup:** Just open the file in a browser - no server needed
 - Computes win probabilities locally in JavaScript on page load
 
